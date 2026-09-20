@@ -4,8 +4,12 @@ import harpe.ffi.os
 import harpe.ffi.threading
 import harpe.util.File
 import harpe.Model
-import harpe.Http
-import harpe.Http.request
+import harpe.server.Http.Header
+import harpe.server.Http.Mime
+import harpe.server.Http.Status
+import harpe.server.Request
+import harpe.server.Response
+import harpe.server.request
 import smart.logistics.agents.Watcher
 import smart.logistics.agents.Planner
 import smart.logistics.db.DB
@@ -21,7 +25,7 @@ class Server(brain: Model, home: String, databasePath: String)
   private val watcher = new Watcher(brain, home, databasePath)
   private val planner = new Planner(brain, home, databasePath)
 
-  def route(): py.List receives request = with projectHome = home in dispatch()
+  def route(): Response receives request = with projectHome = home in dispatch()
 
   //[ The routes that need no connection, and then everything else.
     !
@@ -30,48 +34,48 @@ class Server(brain: Model, home: String, databasePath: String)
     ! happens on the scheduler's thread where there is no request to inherit
     ! from. Only the tier below is worth a connection, and it opens exactly one.
   //]
-  private def dispatch(): py.List receives request, projectHome =
+  private def dispatch(): Response receives request, projectHome =
     match request
-    case Http.Get("/") => asset("index.html", "text/html; charset=utf-8")
-    case Http.Get("/app.css") => asset("app.css", "text/css; charset=utf-8")
-    case Http.Get("/app.js") => asset("app.js", "text/javascript; charset=utf-8")
+    case Request.Get("/") => asset("index.html", Mime.Html)
+    case Request.Get("/app.css") => asset("app.css", Mime.Css)
+    case Request.Get("/app.js") => asset("app.js", Mime.JavaScript)
     // The watcher, on demand as well as on its schedule.
-    case Http.Post("/api/check-now") => Http.respondJson(watcher.run("manual"))
+    case Request.Post("/api/check-now") => Response.json(watcher.run("manual"))
     // The planner, only ever on demand, with this run's note.
-    case Http.Post("/api/plan") => plan()
+    case Request.Post("/api/plan") => plan()
     case _ => DB.withConn(databasePath, () => connected())
 
   //[ One connection, opened for this request and closed with its response. //]
-  private def connected(): py.List receives request, conn, projectHome =
+  private def connected(): Response receives request, conn, projectHome =
     match request
-    case Http.Get("/api/snapshot") => snapshot()
-    case Http.Get("/api/warnings") =>
-      Http.respondJson(py.dict("warnings" ~ Checks.warnings()))
-    case Http.Get("/api/checks") =>
-      Http.respondJson(py.dict("checks" ~ Checks.checks()))
-    case Http.Get("/api/drafts") =>
-      Http.respondJson(py.dict("drafts" ~ Orders.drafts()))
-    case Http.Get("/api/runs") => Http.respondJson(py.dict("runs" ~ Runs.runs()))
-    case Http.Get("/api/demand") =>
-      Http.respondJson(py.dict("demand" ~ Stock.demand(28)))
-    case Http.Get("/api/movements") => movements()
-    case Http.Get("/api/suppliers") =>
-      Http.respondJson(py.dict("suppliers" ~ Stock.suppliers()))
-    case Http.Get("/api/skills") =>
-      Http.respondJson(py.dict("skills" ~ Skills.skillNames()))
-    case Http.Get("/api/skills/read") => skillRead()
-    case Http.Get("/api/skills/revisions") => skillRevisions()
-    case Http.Get("/api/skills/revision") => skillRevision()
-    case Http.Get("/api/drafts/export") => draftExport()
-    case Http.Post("/api/products") => saveProduct()
-    case Http.Post("/api/movements") => recordMovement()
-    case Http.Post("/api/checks") => saveCheck()
-    case Http.Post("/api/checks/delete") => deleteCheck()
-    case Http.Post("/api/skills") => saveSkill()
-    case Http.Post("/api/skills/delete") => deleteSkill()
-    case Http.Post("/api/drafts/status") => draftStatus()
-    case Http.Post("/api/orders/receive") => receiveDelivery()
-    case _ => Http.respond("404 Not Found", "application/json", "{\"error\":\"not found\"}")
+    case Request.Get("/api/snapshot") => snapshot()
+    case Request.Get("/api/warnings") =>
+      Response.json(py.dict("warnings" ~ Checks.warnings()))
+    case Request.Get("/api/checks") =>
+      Response.json(py.dict("checks" ~ Checks.checks()))
+    case Request.Get("/api/drafts") =>
+      Response.json(py.dict("drafts" ~ Orders.drafts()))
+    case Request.Get("/api/runs") => Response.json(py.dict("runs" ~ Runs.runs()))
+    case Request.Get("/api/demand") =>
+      Response.json(py.dict("demand" ~ Stock.demand(28)))
+    case Request.Get("/api/movements") => movements()
+    case Request.Get("/api/suppliers") =>
+      Response.json(py.dict("suppliers" ~ Stock.suppliers()))
+    case Request.Get("/api/skills") =>
+      Response.json(py.dict("skills" ~ Skills.skillNames()))
+    case Request.Get("/api/skills/read") => skillRead()
+    case Request.Get("/api/skills/revisions") => skillRevisions()
+    case Request.Get("/api/skills/revision") => skillRevision()
+    case Request.Get("/api/drafts/export") => draftExport()
+    case Request.Post("/api/products") => saveProduct()
+    case Request.Post("/api/movements") => recordMovement()
+    case Request.Post("/api/checks") => saveCheck()
+    case Request.Post("/api/checks/delete") => deleteCheck()
+    case Request.Post("/api/skills") => saveSkill()
+    case Request.Post("/api/skills/delete") => deleteSkill()
+    case Request.Post("/api/drafts/status") => draftStatus()
+    case Request.Post("/api/orders/receive") => receiveDelivery()
+    case _ => Response.json(py.dict("error" ~ "not found"), status = Status.NotFound)
 
   //[ Everything the page needs on load, in one response and on one connection.
     !
@@ -81,8 +85,8 @@ class Server(brain: Model, home: String, databasePath: String)
     ! `at_risk_count`, which walked the whole ledger a second time to produce a
     ! number the page was working out for itself.
   //]
-  private def snapshot(): py.List receives request, conn =
-    Http.respondJson(py.dict:
+  private def snapshot(): Response receives request, conn =
+    Response.json(py.dict:
       "products"  ~ Stock.products()
       "suppliers" ~ Stock.suppliers()
       "summary"   ~ py.dict("last_checked" ~ Runs.lastChecked()))
@@ -90,86 +94,89 @@ class Server(brain: Model, home: String, databasePath: String)
   //[ Browser responses carry their own headers: nothing is sniffed, and the
     ! page may load only its own script and stylesheet.
   //]
-  private def asset(name: String, mime: String): py.List receives request =
-    val headers = py.list:
-      py.tuple("Content-Type", mime)
-      py.tuple("Cache-Control", "no-store")
-      py.tuple("X-Content-Type-Options", "nosniff")
-      py.tuple:
+  private def asset(name: String, mime: Mime.Type): Response =
+    val headers = List:
+      Header:
         "Content-Security-Policy"
         "default-src 'none'; script-src 'self'; style-src 'self'; "
           + "connect-src 'self'; img-src 'self' data:; base-uri 'none'; "
           + "form-action 'none'"
     val body = File.read(os.path.join(home, "assets", name))
-    Http.respondBytes("200 OK", headers, py.dynamic(body).encode())
+    Response.complete(Status.Success, mime, body, headers = headers)
 
-  private def body(): py.Dict = Http.readJson()
+  private def invalidBody(): Response =
+    Response.json(py.dict("error" ~ "Expected a JSON object."), status = Status.BadRequest)
 
   private def query(name: String): String receives request =
-    val raw = request.environ.get("QUERY_STRING", "").asString
-    val values = py.module("urllib.parse").parse_qs(raw).get(name, py.list()).cast[py.List]
-    if values.size == 0 then "" else values[0].asString
+    Request.query(name).getOrElse("")
 
-  private def ok(extra: py.Dict): py.List =
+  private def ok(extra: py.Dict): Response =
     extra.set("ok", true)
-    Http.respondJson(extra)
+    Response.json(extra)
 
-  private def plan(): py.List receives request =
-    Http.respondJson(planner.run(body().get("note", "").asString))
+  private def plan(): Response receives request =
+    val data = Request.json() rescue None => return invalidBody()
+    Response.json(planner.run(data.get("note", "").asString))
 
-  private def saveProduct(): py.List receives request, conn =
-    ok(py.dict("id" ~ Stock.saveProduct(body())))
+  private def saveProduct(): Response receives request, conn =
+    val data = Request.json() rescue None => return invalidBody()
+    ok(py.dict("id" ~ Stock.saveProduct(data)))
 
-  private def movements(): py.List receives request, conn =
+  private def movements(): Response receives request, conn =
     val productId = Int.parse(query("product_id")) rescue None => 0
-    Http.respondJson(py.dict("movements" ~ Stock.movements(productId, 100)))
+    Response.json(py.dict("movements" ~ Stock.movements(productId, 100)))
 
-  private def recordMovement(): py.List receives request, conn =
-    ok(py.dict("id" ~ Stock.recordMovement(body())))
+  private def recordMovement(): Response receives request, conn =
+    val data = Request.json() rescue None => return invalidBody()
+    ok(py.dict("id" ~ Stock.recordMovement(data)))
 
-  private def saveCheck(): py.List receives request, conn =
-    ok(py.dict("id" ~ Checks.saveCheck(body())))
+  private def saveCheck(): Response receives request, conn =
+    val data = Request.json() rescue None => return invalidBody()
+    ok(py.dict("id" ~ Checks.saveCheck(data)))
 
-  private def deleteCheck(): py.List receives request, conn =
-    Checks.deleteCheck(body().get("id").asInt)
+  private def deleteCheck(): Response receives request, conn =
+    val data = Request.json() rescue None => return invalidBody()
+    Checks.deleteCheck(data.get("id").asInt)
     ok(py.dict())
 
-  private def skillRead(): py.List receives request, projectHome =
+  private def skillRead(): Response receives request, projectHome =
     val name = query("name")
-    Http.respondJson(py.dict("name" ~ name, "content" ~ Skills.readSkill(name)))
+    Response.json(py.dict("name" ~ name, "content" ~ Skills.readSkill(name)))
 
-  private def skillRevisions(): py.List receives request, conn =
-    Http.respondJson(py.dict("revisions" ~ Skills.skillRevisions(query("name"))))
+  private def skillRevisions(): Response receives request, conn =
+    Response.json(py.dict("revisions" ~ Skills.skillRevisions(query("name"))))
 
-  private def skillRevision(): py.List receives request, conn =
+  private def skillRevision(): Response receives request, conn =
     val revision = Int.parse(query("revision")) rescue None => 0
     val name = query("name")
-    Http.respondJson: py.dict:
+    Response.json: py.dict:
       "name"     ~ name
       "revision" ~ revision
       "content"  ~ Skills.skillRevision(name, revision)
 
-  private def saveSkill(): py.List receives request, conn, projectHome =
-    val data = body()
+  private def saveSkill(): Response receives request, conn, projectHome =
+    val data = Request.json() rescue None => return invalidBody()
     val name = Skills.saveSkill:
       data.get("name", "").asString
       data.get("content", "").asString
     ok(py.dict("name" ~ name))
 
-  private def deleteSkill(): py.List receives request, projectHome =
-    Http.respondJson: py.dict:
-      "ok" ~ Skills.deleteSkill(body().get("name", "").asString)
+  private def deleteSkill(): Response receives request, projectHome =
+    val data = Request.json() rescue None => return invalidBody()
+    Response.json: py.dict:
+      "ok" ~ Skills.deleteSkill(data.get("name", "").asString)
 
-  private def draftStatus(): py.List receives request, conn =
-    val data = body()
-    Http.respondJson: py.dict:
+  private def draftStatus(): Response receives request, conn =
+    val data = Request.json() rescue None => return invalidBody()
+    Response.json: py.dict:
       "ok" ~ Orders.setDraftStatus(data.get("id").asInt, data.get("status").asString)
 
   //[ Booking a delivery against an open order. The only caller is a person at
     ! the receiving door; neither agent has this, or any other, write to stock.
   //]
-  private def receiveDelivery(): py.List receives request, conn =
-    refusable(() => ok(py.dict("received" ~ Orders.receiveOrder(body()))))
+  private def receiveDelivery(): Response receives request, conn =
+    val data = Request.json() rescue None => return invalidBody()
+    refusable(() => ok(py.dict("received" ~ Orders.receiveOrder(data))))
 
   //[ A refusal a person can act on.
     !
@@ -179,22 +186,19 @@ class Server(brain: Model, home: String, databasePath: String)
     ! to do something about it. Letting that surface as a bare 500 would tell
     ! them only that the computer said no.
   //]
-  private def refusable(handler: () => py.List): py.List receives request =
+  private def refusable(handler: () => Response): Response =
     val outcome = py.try: handler()
     match outcome
     case Ok(response) => response
     case Err(error) =>
-      Http.respond:
-        "400 Bad Request"
-        "application/json"
-        py.module("json").dumps(py.dict("error" ~ error.message)).asString
+      Response.json(py.dict("error" ~ error.message), status = Status.BadRequest)
 
-  private def draftExport(): py.List receives request, conn =
+  private def draftExport(): Response receives request, conn =
     val id = Int.parse(query("id")) rescue None => 0
     val selected = py.list()
     for item in Orders.drafts() do
       if item.cast[py.Dict].get("id").asInt == id then selected.append(item)
-    Http.respondJson(py.dict("orders" ~ selected))
+    Response.json(py.dict("orders" ~ selected))
 
   //[ The watcher runs on its own. The planner never does. //]
   def startWatching(rawMinutes: String): Unit =

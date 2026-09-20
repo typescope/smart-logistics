@@ -1,0 +1,125 @@
+namespace smart.logistics.tests.ServerTest
+
+import harpe.ffi.os
+import harpe.models.echo
+import harpe.server.Application
+import harpe.testing.test
+import harpe.testing.thisSuite
+import harpe.testing.check
+import harpe.logging.logger
+import smart.logistics.Server
+import smart.logistics.db.DB
+
+// Exercise the HTTP boundary without a socket or provider. Each fixture owns
+// its database, skills and logs, so POST requests cannot change the working tree.
+private class Fixture
+  val home: String = py.module("tempfile").mkdtemp(prefix = "sl-http-").asString
+  private val databasePath = os.path.join(home, "logistics.db")
+  private val server = new Server(echo(), home, databasePath)
+  private val application = new Application([], () => server.route())
+
+  def run(body: Fixture => Unit): Unit =
+    for name in ["assets", "prompts", "skills"] do
+      py.module("shutil").copytree(os.path.abspath(name), os.path.join(home, name))
+    DB.initialize(databasePath, os.path.join(home, "migrations"))
+    body(this)
+
+  def call(method: String, target: String, body: String = "", mime: String = "application/json"): Answer =
+    val parts = py.module("urllib.parse").urlsplit(target)
+    val raw = py.dynamic(body).encode("utf-8")
+    val environ = py.dict:
+      "REQUEST_METHOD" ~ method
+      "PATH_INFO" ~ parts.path
+      "QUERY_STRING" ~ parts.query
+      "HTTP_HOST" ~ "localhost"
+      "CONTENT_TYPE" ~ mime
+      "CONTENT_LENGTH" ~ py.module("builtins").len(raw).asInt.toString
+      "wsgi.input" ~ py.module("io").BytesIO(raw)
+    val sent = py.dict()
+    val start = (status: py.Dynamic, headers: py.Dynamic) =>
+      sent.set("status", status)
+      sent.set("headers", py.module("builtins").dict(headers))
+      py.none()
+    val returned = application.wsgi()(py.dynamic(environ), py.dynamic(start))
+    val text = py.dynamic("").encode().join(returned).decode("utf-8").asString
+    new Answer(sent.get("status").asString, sent.get("headers").cast[py.Dict], text)
+end
+
+private class Answer(status: String, headers: py.Dict, body: String)
+  def json: py.Dict = py.module("json").loads(body).cast[py.Dict]
+  def header(name: String): String = headers.get(name, "").asString
+end
+
+private def withFixture(body: Fixture => Unit): Unit =
+  val fixture = new Fixture
+  val outcome = py.try(fixture.run(body))
+  py.module("shutil").rmtree(fixture.home)
+  match outcome
+  case Ok(_) => pass
+  case Err(error) => abort error.message
+
+def serverSuite(): Unit receives thisSuite, logger =
+  test: "the page and assets retain their types and browser policy", () =>
+    withFixture: fixture =>
+      val page = fixture.call("GET", "/")
+      check("the page is served", page.status == "200 OK" && page.body.contains("Smart Logistics"))
+      check("HTML is UTF-8", page.header("Content-Type") == "text/html; charset=utf-8")
+      check("responses are not cached", page.header("Cache-Control") == "no-store")
+      check("types are not sniffed", page.header("X-Content-Type-Options") == "nosniff")
+      check("scripts stay same-origin", page.header("Content-Security-Policy").contains("script-src 'self'"))
+      val css = fixture.call("GET", "/app.css")
+      check("CSS is served", css.status == "200 OK" && css.header("Content-Type") == "text/css; charset=utf-8")
+      val js = fixture.call("GET", "/app.js")
+      check("JavaScript is served", js.status == "200 OK" && js.header("Content-Type") == "application/javascript; charset=utf-8")
+
+  test: "the snapshot and missing routes keep their JSON contracts", () =>
+    withFixture: fixture =>
+      val snapshot = fixture.call("GET", "/api/snapshot")
+      check("a successful JSON response", snapshot.status == "200 OK" && snapshot.header("Content-Type") == "application/json")
+      check("the seeded products", snapshot.json.get("products").cast[py.List].size == 12)
+      check("nothing checked yet", snapshot.json.get("summary").cast[py.Dict].get("last_checked").asString == "")
+      val missing = fixture.call("GET", "/missing")
+      check("missing routes stay 404", missing.status == "404 Not Found" && missing.json.get("error").asString == "not found")
+
+  test: "JSON writes and encoded query parameters reach the skill store", () =>
+    withFixture: fixture =>
+      val saved = fixture.call("POST", "/api/skills", "{\"name\":\"http-check\",\"content\":\"Keep 7 days of cover.\"}")
+      check("the write succeeds", saved.status == "200 OK" && saved.json.get("ok").asBool)
+      val read = fixture.call("GET", "/api/skills/read?name=http%2Dcheck")
+      check("query parameters are decoded", read.json.get("content").asString == "Keep 7 days of cover.")
+      val revision = fixture.call("GET", "/api/skills/revision?name=http-check&revision=1")
+      check("both query parameters reach the revision reader", revision.json.get("content").asString == read.json.get("content").asString)
+      val deleted = fixture.call("POST", "/api/skills/delete", "{\"name\":\"http-check\"}")
+      check("the delete succeeds", deleted.status == "200 OK" && deleted.json.get("ok").asBool)
+
+  test: "invalid JSON is refused before any write or agent run", () =>
+    withFixture: fixture =>
+      val routes = ["/api/plan", "/api/products", "/api/movements", "/api/checks",
+        "/api/checks/delete", "/api/skills", "/api/skills/delete", "/api/drafts/status", "/api/orders/receive"]
+      for route in routes do
+        for body in ["{", "[]", "null", ""] do
+          val refused = fixture.call("POST", route, body)
+          check("invalid body at " + route, refused.status == "400 Bad Request")
+          check("a readable error", refused.json.get("error").asString == "Expected a JSON object.")
+      val wrongType = fixture.call("POST", "/api/checks", "{\"text\":\"Not a JSON request\"}", mime = "text/plain")
+      check("the content type must also be JSON", wrongType.status == "400 Bad Request")
+      check("no run was started", fixture.call("GET", "/api/runs").json.get("runs").cast[py.List].size == 0)
+
+  test: "a refused delivery still reports its reason as a 400", () =>
+    withFixture: fixture =>
+      val refused = fixture.call("POST", "/api/orders/receive", "{}")
+      check("the refusal status", refused.status == "400 Bad Request")
+      check("the reason reaches the browser", refused.json.get("error").asString == "a delivery needs at least one line")
+
+  test: "both agent routes complete and record a turn without a provider", () =>
+    withFixture: fixture =>
+      val watch = fixture.call("POST", "/api/check-now")
+      check("the watcher ran", watch.status == "200 OK" && watch.json.get("ok").asBool)
+      check("the watcher reported", watch.json.get("report").asString.startsWith("echo: Check the depot"))
+      val plan = fixture.call("POST", "/api/plan", "{\"note\":\"Focus on soap\"}")
+      check("the planner ran", plan.status == "200 OK" && plan.json.get("ok").asBool)
+      check("the note reached the model", plan.json.get("report").asString.contains("Focus on soap"))
+      val runs = fixture.call("GET", "/api/runs").json.get("runs").cast[py.List]
+      check("both turns were recorded", runs.size == 2)
+      for run in runs do
+        check("the run succeeded", run.cast[py.Dict].get("status").asString == "success")

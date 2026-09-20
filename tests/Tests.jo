@@ -2,10 +2,10 @@
   !
   ! The entry point for this agent's suite: `jo test`, or `jo run tests`.
   !
-  ! Two things are worth proving here. That the capability boundary is real —
-  ! generated code that reaches past it does not compile — and that the runtime
-  ! refuses a draft the physical facts do not allow, however it was asked for.
-  ! Neither needs an API key or the network.
+  ! Proves that generated code cannot compile past its capability boundary and
+  ! that the runtime refuses a draft the physical facts do not allow.
+  ! The HTTP routes are exercised through WSGI, with an echo model for agent
+  ! turns. None of these tests needs an API key or the network.
 //]
 
 namespace smart.logistics.tests.Main
@@ -19,6 +19,7 @@ import harpe.testing.suite
 import harpe.testing.thisSuite
 import smart.logistics.tests.DepotTest
 import smart.logistics.tests.CapabilityTest
+import smart.logistics.tests.ServerTest
 
 def main(): Unit receives stdout =
   Logging.withLogger(Logging.discard, () => run())
@@ -33,3 +34,4 @@ private def run(): Unit receives stdout, logger =
 private def suites(): Unit receives thisSuite, logger =
   suite: "depot", () => DepotTest.depotSuite()
   suite: "capability", () => CapabilityTest.capabilitySuite()
+  suite: "server", () => ServerTest.serverSuite()

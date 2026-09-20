@@ -38,6 +38,8 @@ jobs:
           python-version: '3.12'
 
       - name: Install Jo
+        env:
+          JO_VERSION: '0.13.5'
         run: |
           curl -sSf https://jo-lang.org/install.sh | sh
           echo "$HOME/.local/bin" >> "$GITHUB_PATH"
