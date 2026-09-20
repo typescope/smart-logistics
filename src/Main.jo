@@ -6,7 +6,7 @@ import harpe.ffi.sys
 import harpe.util.Process
 import harpe.util.File
 import harpe.Model
-import harpe.Http
+import harpe.server.Application
 import smart.logistics.db.DB
 
 param appHome: String
@@ -33,7 +33,15 @@ private def start(): Unit receives stdout, appHome =
   val port = Int.parse(os.getenv("PORT","8766")) rescue None => 8766
   val server = new Server(Model.default(),appHome,databasePath)
   server.startWatching(os.getenv("WATCH_INTERVAL_MINUTES","0"))
-  val httpd = Http.server: host,port,() => server.route()
+  val application = new Application:
+    routes = []
+    fallback = () => server.route()
+    host = if isLoopback(host) then Application.Host.Loopback else Application.Host.Unchecked
+  val httpd = py.module("waitress").create_server:
+    application.wsgi()
+    host = host
+    port = port
+    max_request_body_size = application.ceiling
 
   println """
     Smart Logistics · local depot planner
@@ -43,7 +51,7 @@ private def start(): Unit receives stdout, appHome =
     Ctrl-C to stop
   """
   Process.shutdownOnSigint("\nSmart Logistics stopped.")
-  httpd.serve_forever()
+  httpd.run()
 
 private def isLoopback(host: String): Bool =
   host == "127.0.0.1" || host == "localhost" || host == "::1"

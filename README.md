@@ -26,6 +26,9 @@ they have. `sandbox/watch/API.jo` and `sandbox/plan/API.jo` are the whole of it.
 
 ## Run
 
+Requires **Jo 0.13.5**. The committed `jo.lock` files resolve Harpe and its
+companion packages to **0.10.1**.
+
 ```sh
 pip install -r requirements.txt
 cp .env.example .env
@@ -118,7 +121,8 @@ which is why every draft goes to a person.
 
 `tests/` proves both halves without an API key: guest programs that reach past
 their capability fail to compile, and the runtime refuses every draft the
-physical facts forbid.
+physical facts forbid. It also checks the HTTP routes and both agent turns
+using an offline echo model.
 
 ```sh
 jo run tests
