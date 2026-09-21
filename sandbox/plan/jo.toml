@@ -13,7 +13,7 @@ enable-ffi = true
 src = ["../shared/Depot.jo", "Runtime.jo", "PlanImpl.jo"]
 depth = 2
 modules = ["api"]
-packages = [{ name = "harpe", version = "0.10" }]
+packages = [{ name = "harpe", version = "0.11" }]
 
 [module.guest]
 kind = "app"

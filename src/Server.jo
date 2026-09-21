@@ -108,18 +108,18 @@ class Server(brain: Model, home: String, databasePath: String)
     Response.json(py.dict("error" ~ "Expected a JSON object."), status = Status.BadRequest)
 
   private def query(name: String): String receives request =
-    Request.query(name).getOrElse("")
+    request.query(name).getOrElse("")
 
   private def ok(extra: py.Dict): Response =
     extra.set("ok", true)
     Response.json(extra)
 
   private def plan(): Response receives request =
-    val data = Request.json() rescue None => return invalidBody()
+    val data = request.json() rescue None => return invalidBody()
     Response.json(planner.run(data.get("note", "").asString))
 
   private def saveProduct(): Response receives request, conn =
-    val data = Request.json() rescue None => return invalidBody()
+    val data = request.json() rescue None => return invalidBody()
     ok(py.dict("id" ~ Stock.saveProduct(data)))
 
   private def movements(): Response receives request, conn =
@@ -127,15 +127,15 @@ class Server(brain: Model, home: String, databasePath: String)
     Response.json(py.dict("movements" ~ Stock.movements(productId, 100)))
 
   private def recordMovement(): Response receives request, conn =
-    val data = Request.json() rescue None => return invalidBody()
+    val data = request.json() rescue None => return invalidBody()
     ok(py.dict("id" ~ Stock.recordMovement(data)))
 
   private def saveCheck(): Response receives request, conn =
-    val data = Request.json() rescue None => return invalidBody()
+    val data = request.json() rescue None => return invalidBody()
     ok(py.dict("id" ~ Checks.saveCheck(data)))
 
   private def deleteCheck(): Response receives request, conn =
-    val data = Request.json() rescue None => return invalidBody()
+    val data = request.json() rescue None => return invalidBody()
     Checks.deleteCheck(data.get("id").asInt)
     ok(py.dict())
 
@@ -155,19 +155,19 @@ class Server(brain: Model, home: String, databasePath: String)
       "content"  ~ Skills.skillRevision(name, revision)
 
   private def saveSkill(): Response receives request, conn, projectHome =
-    val data = Request.json() rescue None => return invalidBody()
+    val data = request.json() rescue None => return invalidBody()
     val name = Skills.saveSkill:
       data.get("name", "").asString
       data.get("content", "").asString
     ok(py.dict("name" ~ name))
 
   private def deleteSkill(): Response receives request, projectHome =
-    val data = Request.json() rescue None => return invalidBody()
+    val data = request.json() rescue None => return invalidBody()
     Response.json: py.dict:
       "ok" ~ Skills.deleteSkill(data.get("name", "").asString)
 
   private def draftStatus(): Response receives request, conn =
-    val data = Request.json() rescue None => return invalidBody()
+    val data = request.json() rescue None => return invalidBody()
     Response.json: py.dict:
       "ok" ~ Orders.setDraftStatus(data.get("id").asInt, data.get("status").asString)
 
@@ -175,7 +175,7 @@ class Server(brain: Model, home: String, databasePath: String)
     ! the receiving door; neither agent has this, or any other, write to stock.
   //]
   private def receiveDelivery(): Response receives request, conn =
-    val data = Request.json() rescue None => return invalidBody()
+    val data = request.json() rescue None => return invalidBody()
     refusable(() => ok(py.dict("received" ~ Orders.receiveOrder(data))))
 
   //[ A refusal a person can act on.
