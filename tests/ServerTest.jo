@@ -2,7 +2,8 @@ namespace smart.logistics.tests.ServerTest
 
 import harpe.ffi.os
 import harpe.models.echo
-import harpe.server.Application
+import harpe.server.WebApp
+import harpe.server.Route
 import harpe.testing.test
 import harpe.testing.thisSuite
 import harpe.testing.check
@@ -16,7 +17,9 @@ private class Fixture
   val home: String = py.module("tempfile").mkdtemp(prefix = "sl-http-").asString
   private val databasePath = os.path.join(home, "logistics.db")
   private val server = new Server(echo(), home, databasePath)
-  private val application = new Application([], () => server.route())
+  private val application = new WebApp(
+        [],
+        WebApp.Fallback(() => server.route(), maxBodyBytes = Route.defaultMaxBodyBytes))
 
   def run(body: Fixture => Unit): Unit =
     for name in ["assets", "prompts", "skills"] do

@@ -6,7 +6,8 @@ import harpe.ffi.sys
 import harpe.util.Process
 import harpe.util.File
 import harpe.Model
-import harpe.server.Application
+import harpe.server.WebApp
+import harpe.server.Route
 import smart.logistics.db.DB
 
 param appHome: String
@@ -33,15 +34,15 @@ private def start(): Unit receives stdout, appHome =
   val port = Int.parse(os.getenv("PORT","8766")) rescue None => 8766
   val server = new Server(Model.default(),appHome,databasePath)
   server.startWatching(os.getenv("WATCH_INTERVAL_MINUTES","0"))
-  val application = new Application:
+  val application = new WebApp:
     routes = []
-    fallback = () => server.route()
-    host = if isLoopback(host) then Application.Host.Loopback else Application.Host.Unchecked
+    fallback = WebApp.Fallback(() => server.route(), maxBodyBytes = Route.defaultMaxBodyBytes)
+    host = WebApp.Loopback
   val httpd = py.module("waitress").create_server:
     application.wsgi()
     host = host
     port = port
-    max_request_body_size = application.ceiling
+    max_request_body_size = application.maxRequestBodyBytes
 
   println """
     Smart Logistics · local depot planner
