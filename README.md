@@ -44,9 +44,8 @@ Open <http://127.0.0.1:8766>. The first run creates `data/logistics.db` with a
 depot that is already in trouble.
 
 `WATCH_INTERVAL_MINUTES=0` keeps the schedule off; **Check now** runs the
-watcher by hand. The app has no login, and refuses to bind anywhere but loopback
-unless `ALLOW_UNSAFE_REMOTE=true` is set — which is unsafe on an untrusted
-network.
+watcher by hand. The app has no login, so it binds to loopback and answers only
+to loopback names. It refuses to start anywhere else.
 
 ## What to try
 
