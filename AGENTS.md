@@ -40,6 +40,8 @@ Inspect the diff before handing off. Report checks run and any that could not ru
   Update affected prompt and skill examples.
 - Preserve loopback binding and host checks. The application has no login.
 - Do not edit generated `.build/` output.
+- If Jo or Harpe crashes or appears to have a bug, reduce it to a small
+  reproduction and submit an issue with the reproduction and version details.
 
 ## References
 
