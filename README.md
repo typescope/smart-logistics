@@ -26,11 +26,15 @@ they have. `sandbox/watch/API.jo` and `sandbox/plan/API.jo` are the whole of it.
 
 ## Run
 
+See [AGENTS.md](AGENTS.md) for development commands and conventions.
+
 Requires **Jo 0.13.5**. The committed `jo.lock` files resolve Harpe and its
 companion packages to **0.10.1**.
 
 ```sh
-pip install -r requirements.txt
+python3 -m venv .venv
+. .venv/bin/activate
+python -m pip install -r requirements.txt
 cp .env.example .env
 # add ANTHROPIC_API_KEY or OPENAI_API_KEY
 jo start
@@ -124,6 +128,7 @@ physical facts forbid. It also checks the HTTP routes and both agent turns
 using an offline echo model.
 
 ```sh
+. .venv/bin/activate
 jo run tests
 ```
 
