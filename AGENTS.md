@@ -16,6 +16,8 @@ Activate the environment in each shell before installing dependencies or running
 - Build the application: `jo build agent`.
 - Build the watcher sandbox: `jo build --spec sandbox/watch/jo.toml guest`.
 - Build the planner sandbox: `jo build --spec sandbox/plan/jo.toml guest`.
+- Query resolved APIs: `jo compile --query jo.List,jo.Map` (replace the selectors
+  with the APIs you need).
 - Run the web application after configuration: `jo start`.
 - Run tests: `jo run tests`. They use an offline model and need no provider API key.
 
