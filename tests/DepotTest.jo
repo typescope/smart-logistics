@@ -9,6 +9,7 @@ import harpe.ffi.os
 import harpe.util.File
 import harpe.testing.test
 import harpe.testing.thisSuite
+import harpe.testing.testResult
 import harpe.testing.check
 import harpe.logging.logger
 import smart.logistics.db.DB
@@ -26,8 +27,8 @@ def freshDepot(): String = depotIn(py.module("tempfile").mkdtemp(prefix = "sl-db
   ! Which is what a request does, and what every test below wants: the stores
   ! take their connection from context, so something has to put one there.
 //]
-def depotTest(name: String, body: () => Unit receives conn): Unit receives thisSuite, logger =
-  test: name, () => DB.withConn(freshDepot(), body)
+def depotTest(name: String, body: () => Unit receives conn, testResult): Unit receives thisSuite, logger =
+  test: name, () => DB.withConn(freshDepot(), () => body())
 
 //[ A depot whose `migrations/` directory is the test's to write into.
   !

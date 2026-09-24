@@ -12,6 +12,7 @@ namespace smart.logistics.tests.CapabilityTest
 
 import harpe.testing.test
 import harpe.testing.thisSuite
+import harpe.testing.testResult
 import harpe.testing.check
 import harpe.logging.logger
 import smart.logistics.tests.Sandbox
@@ -113,7 +114,7 @@ def runTask(): Unit receives IO.stdout, plan =
     ! call moves an order out of `draft` — not onto a supplier, and not into
     ! stock.
   //]
-  def nothingWasOrdered(): Unit receives conn, thisSuite, logger =
+  def nothingWasOrdered(): Unit receives conn, thisSuite, logger, testResult =
     var newest = py.dict()
     var placed = 0
     for item in Orders.drafts() do

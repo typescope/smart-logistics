@@ -18,8 +18,8 @@ private class Fixture
   private val databasePath = os.path.join(home, "logistics.db")
   private val server = new Server(echo(), home, databasePath)
   private val application = new WebApp(
-        [],
-        WebApp.Fallback(() => server.route(), maxBodyBytes = Route.defaultMaxBodyBytes))
+        [Route.assets("/assets/", os.path.join(home, "assets"))],
+        WebApp.Fallback(() => server.route(), maxReqBody = Route.defaultMaxReqBody))
 
   def run(body: Fixture => Unit): Unit =
     for name in ["assets", "prompts", "skills"] do
@@ -70,9 +70,9 @@ def serverSuite(): Unit receives thisSuite, logger =
       check("responses are not cached", page.header("Cache-Control") == "no-store")
       check("types are not sniffed", page.header("X-Content-Type-Options") == "nosniff")
       check("scripts stay same-origin", page.header("Content-Security-Policy").contains("script-src 'self'"))
-      val css = fixture.call("GET", "/app.css")
+      val css = fixture.call("GET", "/assets/app.css")
       check("CSS is served", css.status == "200 OK" && css.header("Content-Type") == "text/css; charset=utf-8")
-      val js = fixture.call("GET", "/app.js")
+      val js = fixture.call("GET", "/assets/app.js")
       check("JavaScript is served", js.status == "200 OK" && js.header("Content-Type") == "application/javascript; charset=utf-8")
 
   test: "the snapshot and missing routes keep their JSON contracts", () =>

@@ -32,14 +32,14 @@ private def start(): Unit receives stdout, appHome =
   val server = new Server(Model.default(),appHome,databasePath)
   server.startWatching(os.getenv("WATCH_INTERVAL_MINUTES","0"))
   val application = new WebApp:
-    routes = []
-    fallback = WebApp.Fallback(() => server.route(), maxBodyBytes = Route.defaultMaxBodyBytes)
+    routes = [Route.assets("/assets/", os.path.join(appHome, "assets"))]
+    fallback = WebApp.Fallback(() => server.route(), maxReqBody = Route.defaultMaxReqBody)
     host = WebApp.Loopback
   val httpd = py.module("waitress").create_server:
     application.wsgi()
     host = host
     port = port
-    max_request_body_size = application.maxRequestBodyBytes
+    max_request_body_size = application.maxReqBody
 
   println """
     Smart Logistics · local depot planner
