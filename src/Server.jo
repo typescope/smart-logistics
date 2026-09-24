@@ -37,8 +37,6 @@ class Server(brain: Model, home: String, databasePath: String)
   private def dispatch(): Response receives request, projectHome =
     match request
     case Request.Get("/") => asset("index.html", Mime.Html)
-    case Request.Get("/app.css") => asset("app.css", Mime.Css)
-    case Request.Get("/app.js") => asset("app.js", Mime.JavaScript)
     // The watcher, on demand as well as on its schedule.
     case Request.Post("/api/check-now") => Response.json(watcher.run("manual"))
     // The planner, only ever on demand, with this run's note.
