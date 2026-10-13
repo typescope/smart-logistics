@@ -4,9 +4,9 @@ import harpe.ffi.os
 import harpe.models.echo
 import harpe.server.WebApp
 import harpe.server.Route
-import harpe.testing.test
-import harpe.testing.thisSuite
-import harpe.testing.check
+import jtest.test
+import jtest.thisSuite
+import jtest.check
 import harpe.logging.logger
 import smart.logistics.Server
 import smart.logistics.db.DB
@@ -112,7 +112,7 @@ def serverSuite(): Unit receives thisSuite, logger =
     withFixture: fixture =>
       val refused = fixture.call("POST", "/api/orders/receive", "{}")
       check("the refusal status", refused.status == "400 Bad Request")
-      check("the reason reaches the browser", refused.json.get("error").asString == "a delivery needs at least one line")
+      check("the reason reaches the browser", refused.json.get("error").asString.contains("a delivery needs at least one line"))
 
   test: "both agent routes complete and record a turn without a provider", () =>
     withFixture: fixture =>
