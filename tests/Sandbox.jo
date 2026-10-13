@@ -35,7 +35,7 @@ def build(root: String, which: String, code: String): Capped =
 
 //[ Run a guest that has already been compiled, against one database. //]
 def run(root: String, which: String, databasePath: String, runId: Int): Capped =
-  val target = os.path.join(root, which, ".build/guest/jo-0.13/target/guest.py")
+  val target = os.path.join(root, which, ".build/guest/jo-0.14/target/guest.py")
   val env = py.dict(
     "PATH" ~ os.getenv("PATH", "/usr/bin:/bin"),
     "SMART_LOGISTICS_DB" ~ databasePath,

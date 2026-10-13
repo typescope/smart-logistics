@@ -1,5 +1,5 @@
-# Requires Jo 0.13.5; Jo version constraints only accept major.minor.
-jo = "0.13"
+# Requires Jo 0.14.0; Jo version constraints only accept major.minor.
+jo = "0.14"
 
 [module.api]
 kind = "lib"
@@ -13,7 +13,7 @@ enable-ffi = true
 src = ["../shared/Depot.jo", "Runtime.jo", "PlanImpl.jo"]
 depth = 2
 modules = ["api"]
-packages = [{ name = "harpe", version = "0.13" }]
+packages = [{ name = "harpe", version = "0.14" }]
 
 [module.guest]
 kind = "app"

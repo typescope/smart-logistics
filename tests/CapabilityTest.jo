@@ -10,10 +10,10 @@
 
 namespace smart.logistics.tests.CapabilityTest
 
-import harpe.testing.test
-import harpe.testing.thisSuite
-import harpe.testing.testResult
-import harpe.testing.check
+import jtest.test
+import jtest.thisSuite
+import jtest.testResult
+import jtest.check
 import harpe.logging.logger
 import smart.logistics.tests.Sandbox
 import smart.logistics.tests.DepotTest

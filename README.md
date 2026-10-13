@@ -28,8 +28,8 @@ they have. `sandbox/watch/API.jo` and `sandbox/plan/API.jo` are the whole of it.
 
 See [AGENTS.md](AGENTS.md) for development commands and conventions.
 
-Requires **Jo 0.13.5**. The committed `jo.lock` files resolve Harpe and its
-companion packages to **0.10.1**.
+Requires **Jo 0.14.0**. The committed `jo.lock` files resolve Harpe and its
+companion packages to **0.14.0**.
 
 ```sh
 python3 -m venv .venv
