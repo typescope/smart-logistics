@@ -1,6 +1,6 @@
 //[ Tests.jo
   !
-  ! The entry point for this agent's suite: `jo test`, or `jo run tests`.
+  ! The entry point for this agent's suite: `jo run tests`.
   !
   ! Proves that generated code cannot compile past its capability boundary and
   ! that the runtime refuses a draft the physical facts do not allow.

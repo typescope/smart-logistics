@@ -37,7 +37,7 @@ python3 -m venv .venv
 python -m pip install -r requirements.txt
 cp .env.example .env
 # add ANTHROPIC_API_KEY or OPENAI_API_KEY
-jo start
+jo exec start
 ```
 
 OpenRouter works too, but needs both `OPENROUTER_API_KEY` and `MODEL` — it
