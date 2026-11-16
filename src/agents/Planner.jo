@@ -21,7 +21,7 @@ import smart.logistics.db.Runs
 //]
 class Planner(brain: Model, home: String, databasePath: String)
   private val lock = threading.Lock()
-  private val runCode = RunCodeTool(os.path.join(home, "sandbox", "plan"), approvalDeadline = 30)
+  private val runCode = RunCodeTool(os.path.join(home, "sandbox", "plan"), "guest", approvalDeadline = 30)
 
   def run(note: String): py.Dict =
     if !lock.acquire(blocking = false).asBool then
